@@ -1,0 +1,2 @@
+# ResourceScanner
+Unity检测当前场景下所有资源使用情况的工具
