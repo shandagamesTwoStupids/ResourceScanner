@@ -97,8 +97,7 @@ public class ResourceScanner : EditorWindow {
     void OnGUI() {
         //使用说明
         if (GUILayout.Button("使用说明")) {
-            //EditorWindow.GetWindow(typeof(IllustrationWindow)).Show();
-			BuildUnUsedResourceList();
+            EditorWindow.GetWindow(typeof(IllustrationWindow)).Show();
         }
 
         //设置保存文件夹位置
