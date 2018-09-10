@@ -88,8 +88,7 @@ public class ResourceScanner : EditorWindow {
     void OnGUI() {
         //使用说明
         if (GUILayout.Button("使用说明")) {
-            //EditorWindow.GetWindow(typeof(IllustrationWindow)).Show();
-			BuildUnUsedResourceList();
+            EditorWindow.GetWindow(typeof(IllustrationWindow)).Show();
         }
 
         //设置保存文件夹位置
@@ -202,6 +201,42 @@ public class ResourceScanner : EditorWindow {
             }
             EditorSceneManager.OpenScene(nowScenePath, OpenSceneMode.Single);
             EditorUtility.ClearProgressBar();
+        }
+
+        if (GUILayout.Button("扫描场景列表中的资源，寻找没有使用过的资源")) {
+            //记录当前场景路径
+            ClearResourceList();
+            string nowScenePath = EditorSceneManager.GetActiveScene().path;
+            string[] nameOfScenes = GetNameOfFilesToScan(mSaveFolderPath + mSceneNameListFilePath);
+            float progress = 0f;
+            float progressStep = 1.0f / nameOfScenes.Length;
+            for (int i = 0; i < nameOfScenes.Length; i++) {
+                EditorUtility.DisplayProgressBar("扫描中", nameOfScenes[i], progress += progressStep);
+                Scene scene;
+                try {
+                    scene = EditorSceneManager.OpenScene(mSceneFolderPath + nameOfScenes[i] + ".unity", OpenSceneMode.Single);
+                }
+                catch (System.Exception e) {
+                    Debug.Log("场景加载失败，请根据错误信息进行修复,场景名：" + nameOfScenes[i]);
+                    Debug.Log("错误信息:" + e.Message);
+                    EditorUtility.ClearProgressBar();
+                    return;
+                }
+                if (!scene.IsValid()) {
+                    Debug.Log("场景加载失败,场景名：" + nameOfScenes[i]);
+                    EditorUtility.ClearProgressBar();
+                    return;
+                }
+                BuildResourceList(scene);
+            }
+            EditorSceneManager.OpenScene(nowScenePath, OpenSceneMode.Single);
+            EditorUtility.ClearProgressBar();
+            BuildDirsResourceList();
+            BuildUnUsedResourceList();
+            //保存到文件
+            if (SaveUnuseResToFile(mSaveFolderPath, "UnusedResource")) {
+                Debug.Log("保存成功");
+            }
         }
         #region 暂时没有需求就不考虑了
         //扫描资源功能按键
@@ -549,12 +584,8 @@ public class ResourceScanner : EditorWindow {
 
 	//构建当前场景未使用的资源的列表
 	private void BuildUnUsedResourceList(){
-		mUnUsedResourceList.Clear ();
-		BuildResourceList (EditorSceneManager.GetActiveScene());
-		BuildDirsResourceList ();
-		bool tmp;
 		for (int i = 0; i < mDirsResourceList.Count; i++) {
-			tmp = false;
+            bool tmp = false;
 			for (int j = 0; j < mResourceList.Count; j++) {
 				if (mResourceList [j].ResourcePath == mDirsResourceList [i].path) {
 					tmp = true;
@@ -565,7 +596,6 @@ public class ResourceScanner : EditorWindow {
 				mUnUsedResourceList.Add (mDirsResourceList [i]);
 				Debug.Log ("游戏中没用到的资源" + mDirsResourceList [i].path);
 			}
-
 		}
 	}
 
@@ -582,8 +612,17 @@ public class ResourceScanner : EditorWindow {
 		return true;
 	}
 
-	//直接保存资源到指定文件
-	private bool SaveResToFile(string filePath) {
+    private bool SaveUnuseResToFile(string folderPath, string fileName) {
+        string path = folderPath + fileName + System.DateTime.Now.ToString("_yy_MM_dd") + ".csv";
+        using (StreamWriter textWriter = new StreamWriter(path, false, Encoding.Default)) {
+            string text = EncodeUnuseResList();
+            textWriter.Write(text);
+        }
+        return true;
+    }
+
+    //直接保存资源到指定文件
+    private bool SaveResToFile(string filePath) {
 		Debug.Log(filePath);
 		using (StreamWriter textWriter = new StreamWriter(filePath, false, System.Text.Encoding.Default)) {
 			string text = EncodeResourceList();
@@ -651,12 +690,24 @@ public class ResourceScanner : EditorWindow {
     }
 
     private string EncodeObjList() {
-        System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
+        StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.Append("对象名称").Append(',')
             .Append("对象路径（场景内）").Append('\n');
         for (int i = 0; i < mInActiveList.Count; i++) {
             stringBuilder.Append(mInActiveList[i].inActiveObject.name).Append(',')
                 .Append(mInActiveList[i].path).Append('\n');
+        }
+        stringBuilder.Remove(stringBuilder.Length - 1, 1);
+        return stringBuilder.ToString();
+    }
+
+    private string EncodeUnuseResList() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.Append("资源名称").Append(',')
+            .Append("资源路径").Append('\n');
+        for (int i = 0; i < mUnUsedResourceList.Count; i++) {
+            stringBuilder.Append(mUnUsedResourceList[i].name).Append(',')
+                .Append(mUnUsedResourceList[i].path).Append('\n');
         }
         stringBuilder.Remove(stringBuilder.Length - 1, 1);
         return stringBuilder.ToString();
@@ -711,6 +762,8 @@ public class ResourceScanner : EditorWindow {
 		//mUseSortOrder = true;
 		//mTypeSortOrder = true;
 		mInActiveList.Clear ();
+        mDirsResourceList.Clear();
+        mUnUsedResourceList.Clear();
 	}
 
 	private T1[] GetResourceFromComponent<T1>(Object mat) where T1 : Object{
@@ -781,7 +834,7 @@ public class ResourceScanner : EditorWindow {
             }
         }
         catch (System.Exception ex) {
-            Debug.LogError("Compute md5 failed, file path: " + filePath + ", Exception massage: " + ex.Message);
+            Debug.Log("Compute md5 failed, file path: " + filePath + ", Exception massage: " + ex.Message);
             return "";
         }
     }
