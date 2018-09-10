@@ -603,7 +603,6 @@ public class ResourceScanner : EditorWindow {
 			}
 			if (tmp == false) {
 				mUnUsedResourceList.Add (mDirsResourceList [i]);
-				Debug.Log ("游戏中没用到的资源" + mDirsResourceList [i].path);
 			}
 		}
 	}
