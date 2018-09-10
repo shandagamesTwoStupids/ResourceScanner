@@ -32,7 +32,16 @@ public class ResourceScanner : EditorWindow {
 	const string PREFAB = "prefab";
 
 	//查找资源文件夹下带后缀名的资源
-	private static readonly string[] ResourceExts = {".prefab",".png",".jpg",".dds",".gif",".psd",".controller",".shader",".anim",".mat",".wav",".mp3"};
+	private static readonly string[] ResourceExts = {
+		".prefab",
+		".fbx",
+		".tga",".bmp",".png",".jpg",".dds",".gif",".psd",
+		".controller",
+		".anim",
+		".mat",
+		".ogg",".wav",".mp3",
+		".ttf"
+	};
 
 	//保存资源相关信息
 	public class ResourceHolder {
@@ -506,7 +515,7 @@ public class ResourceScanner : EditorWindow {
 		foreach (string path in Directory.GetFiles(dirPath))
 		{
 			foreach (string postfix in ResourceExts) {
-				//获取所有文件夹中包含后缀为 .mat 的路径
+				//获取所有文件夹中包含后缀为 postfix 的路径
 				if (System.IO.Path.GetExtension (path) == postfix) {
 					dirs.Add (path.Substring (path.IndexOf ("Assets")));
 					char[] pathChar = path.Substring (path.IndexOf ("Assets")).ToCharArray ();
