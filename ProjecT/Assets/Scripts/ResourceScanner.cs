@@ -1,12 +1,13 @@
-﻿using System.Collections;
+﻿using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Security.Cryptography;
+using System.Text;
 
 public class ResourceScanner : EditorWindow {
 
@@ -28,6 +29,10 @@ public class ResourceScanner : EditorWindow {
 	const string ANIMATION_CLIP = "animationClip";
 	const string RUNTIME_ANIMATOR_CONTROLLER = "runtimeAnimatorController";
 	const string AVATOR = "avator";
+	const string PREFAB = "prefab";
+
+	//查找资源文件夹下带后缀名的资源
+	private static readonly string[] ResourceExts = {".prefab",".png",".jpg",".dds",".gif",".psd",".controller",".shader",".anim",".mat",".wav",".mp3"};
 
 	//保存资源相关信息
 	public class ResourceHolder {
@@ -39,6 +44,12 @@ public class ResourceScanner : EditorWindow {
 		public string UseSceneName;
         public string ResourceMd5;
 	}
+	//保存资源文件下资源信息
+	class DirsResourceHolder{
+		public string name;
+		public string path;
+		public string postfix;
+	}
 	//保存未激活的gameobject信息
 	public class InActiveHolder {
 		public GameObject inActiveObject;
@@ -48,6 +59,8 @@ public class ResourceScanner : EditorWindow {
     //保存的资源列表
     private Dictionary<string, ResourceHolder> mResourceDict = new Dictionary<string, ResourceHolder>();
     private List<ResourceHolder> mResourceList = new List<ResourceHolder>();
+	private List<DirsResourceHolder> mDirsResourceList = new List<DirsResourceHolder>();
+	private List<DirsResourceHolder> mUnUsedResourceList = new List<DirsResourceHolder> ();
 	private List<InActiveHolder> mInActiveList = new List<InActiveHolder>();
 
     //场景的默认文件路径
@@ -75,7 +88,8 @@ public class ResourceScanner : EditorWindow {
     void OnGUI() {
         //使用说明
         if (GUILayout.Button("使用说明")) {
-            EditorWindow.GetWindow(typeof(IllustrationWindow)).Show();
+            //EditorWindow.GetWindow(typeof(IllustrationWindow)).Show();
+			BuildUnUsedResourceList();
         }
 
         //设置保存文件夹位置
@@ -469,6 +483,8 @@ public class ResourceScanner : EditorWindow {
 				}
 			}
 
+			//Prefab
+			FindPrefabObject(sceneObjects[i],targetScene);
 		}
 
 	}
@@ -480,6 +496,79 @@ public class ResourceScanner : EditorWindow {
 			FindInActive (allSceneGameObject [i],allSceneGameObject [i].name);
 		}
 	}
+
+	//构建资源文件夹中的所有资源列表
+	private void BuildDirsResourceList(){
+		List<string> dirs = new List<string> ();
+		GetDirs (Application.dataPath, ref dirs);
+	}
+	private void GetDirs(string dirPath, ref List<string> dirs){
+		foreach (string path in Directory.GetFiles(dirPath))
+		{
+			foreach (string postfix in ResourceExts) {
+				//获取所有文件夹中包含后缀为 .mat 的路径
+				if (System.IO.Path.GetExtension (path) == postfix) {
+					dirs.Add (path.Substring (path.IndexOf ("Assets")));
+					char[] pathChar = path.Substring (path.IndexOf ("Assets")).ToCharArray ();
+					char[] resultChar = new char[pathChar.Length];
+					System.Array.Reverse (pathChar);
+					int i = 0;
+					while (i < pathChar.Length && pathChar [i] != '\\') {
+						resultChar [i] = pathChar [i];
+						i++;
+					}
+					System.Array.Reverse (resultChar);
+					StringBuilder builder = new StringBuilder ();
+					for (int j = 0; j < resultChar.Length; j++) {
+						if (resultChar [j] != '\0') {
+							builder.Append (resultChar [j]);
+						}
+					}
+					//Debug.Log (builder.ToString ().Split ('.') [0]);
+					DirsResourceHolder holder = new DirsResourceHolder (){ 
+						name = builder.ToString ().Split ('.') [0], 
+						path = path.Substring (path.IndexOf ("Assets")).Replace('\\','/'), 
+						postfix = postfix 
+					};
+					mDirsResourceList.Add (holder);
+
+					//Debug.Log (holder.name + ' ' + holder.path);
+					//Debug.Log(path.Substring(path.IndexOf("Assets")));
+					//Debug.Log (new string(pathChar).Trim());
+				}
+			}
+		}
+		if (Directory.GetDirectories(dirPath).Length > 0)  //遍历所有文件夹
+		{
+			foreach (string path in Directory.GetDirectories(dirPath))
+			{
+				GetDirs(path, ref dirs);
+			}
+		}
+	}
+
+	//构建当前场景未使用的资源的列表
+	private void BuildUnUsedResourceList(){
+		mUnUsedResourceList.Clear ();
+		BuildResourceList (EditorSceneManager.GetActiveScene());
+		BuildDirsResourceList ();
+		bool tmp;
+		for (int i = 0; i < mDirsResourceList.Count; i++) {
+			tmp = false;
+			for (int j = 0; j < mResourceList.Count; j++) {
+				if (mResourceList [j].ResourcePath == mDirsResourceList [i].path) {
+					tmp = true;
+					break;
+				}
+			}
+			if (tmp == false) {
+				mUnUsedResourceList.Add (mDirsResourceList [i]);
+				Debug.Log ("游戏中没用到的资源" + mDirsResourceList [i].path);
+			}
+
+		}
+	}
+
 	#endregion
 
 	#region 文件处理
@@ -640,6 +729,7 @@ public class ResourceScanner : EditorWindow {
 		Texture2D[] textures = GetResourceFromComponent<Texture2D> (mat);
 		if (textures != null) {
 			for (int i = 0; i < textures.Length; i++) {
+				//texture2d
 				AddResource (textures [i], textures [i].name, TEXTURE2D, targetScene.name);
 			}
 		}
@@ -660,6 +750,18 @@ public class ResourceScanner : EditorWindow {
 		} else if (root.transform.childCount != 0) {
 			foreach (Transform child in root.transform) {
 				FindInActive (child.gameObject, gameobjectPath + '/' + child.name);
+			}
+		}
+	}
+
+	private void FindPrefabObject(GameObject root, Scene targetScene){
+		Object prefab = PrefabUtility.GetPrefabParent (root);
+		if (prefab != null) {
+			AddResource (prefab, prefab.name, PREFAB, targetScene.name);
+			return;
+		} else if (root.transform.childCount != 0) {
+			foreach (Transform child in root.transform) {
+				FindPrefabObject (child.gameObject, targetScene);
 			}
 		}
 	}
