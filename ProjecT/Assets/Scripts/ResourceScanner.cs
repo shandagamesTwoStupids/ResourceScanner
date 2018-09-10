@@ -756,7 +756,7 @@ public class ResourceScanner : EditorWindow {
 		}
         for(int i = 0; i < result.Length; i++) {
             if (result[i].Length > 0)
-                resultList.Add(result[i]);
+                resultList.Add(result[i].Trim());
         }
 		return resultList.ToArray();
 	}
