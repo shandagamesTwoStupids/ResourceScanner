@@ -76,6 +76,7 @@ public class ResourceScanner : EditorWindow
 	private List<ResourceHolder> mResourceList = new List<ResourceHolder> ();
 	private List<DirsResourceHolder> mDirsResourceList = new List<DirsResourceHolder> ();
 	private List<DirsResourceHolder> mUnUsedResourceList = new List<DirsResourceHolder> ();
+	private List<string> mAllScenesList = new List<string> ();
 	private List<InActiveHolder> mInActiveList = new List<InActiveHolder> ();
 
 	//场景的默认文件路径
@@ -583,53 +584,71 @@ public class ResourceScanner : EditorWindow
 	//构建资源文件夹中的所有资源列表
 	private void BuildDirsResourceList ()
 	{
-		List<string> dirs = new List<string> ();
-		GetDirs (Application.dataPath, ref dirs);
+		GetDirs (Application.dataPath);
 	}
-
-	private void GetDirs (string dirPath, ref List<string> dirs)
-	{
+	private void GetDirs(string dirPath){
 		foreach (string path in Directory.GetFiles(dirPath)) {
 			foreach (string postfix in ResourceExts) {
 				//获取所有文件夹中包含后缀为 postfix 的路径
 				if (System.IO.Path.GetExtension (path) == postfix) {
-					dirs.Add (path.Substring (path.IndexOf ("Assets")));
-					char[] pathChar = path.Substring (path.IndexOf ("Assets")).ToCharArray ();
-					char[] resultChar = new char[pathChar.Length];
-					System.Array.Reverse (pathChar);
-					int i = 0;
-					while (i < pathChar.Length && pathChar [i] != '\\') {
-						resultChar [i] = pathChar [i];
-						i++;
-					}
-					System.Array.Reverse (resultChar);
-					StringBuilder builder = new StringBuilder ();
-					for (int j = 0; j < resultChar.Length; j++) {
-						if (resultChar [j] != '\0') {
-							builder.Append (resultChar [j]);
-						}
-					}
-					//Debug.Log (builder.ToString ().Split ('.') [0]);
+					string resultName = path.Substring (path.LastIndexOf ('\\')).Split ('\\') [1].Split ('.') [0];
 					DirsResourceHolder holder = new DirsResourceHolder () { 
-						name = builder.ToString ().Split ('.') [0], 
+						name = resultName, 
 						path = path.Substring (path.IndexOf ("Assets")).Replace ('\\', '/'), 
 						postfix = postfix 
 					};
 					mDirsResourceList.Add (holder);
-
-					//Debug.Log (holder.name + ' ' + holder.path);
-					//Debug.Log(path.Substring(path.IndexOf("Assets")));
-					//Debug.Log (new string(pathChar).Trim());
 				}
 			}
 		}
 		if (Directory.GetDirectories (dirPath).Length > 0) {  //遍历所有文件夹
 			foreach (string path in Directory.GetDirectories(dirPath)) {
-				GetDirs (path, ref dirs);
+				GetDirs (path);
 			}
 		}
 	}
-
+//	private void GetDirs (string dirPath)
+//	{
+//		foreach (string path in Directory.GetFiles(dirPath)) {
+//			foreach (string postfix in ResourceExts) {
+//				//获取所有文件夹中包含后缀为 postfix 的路径
+//				if (System.IO.Path.GetExtension (path) == postfix) {
+//					char[] pathChar = path.Substring (path.IndexOf ("Assets")).ToCharArray ();
+//					char[] resultChar = new char[pathChar.Length];
+//					System.Array.Reverse (pathChar);
+//					int i = 0;
+//					while (i < pathChar.Length && pathChar [i] != '\\') {
+//						resultChar [i] = pathChar [i];
+//						i++;
+//					}
+//					System.Array.Reverse (resultChar);
+//					StringBuilder builder = new StringBuilder ();
+//					for (int j = 0; j < resultChar.Length; j++) {
+//						if (resultChar [j] != '\0') {
+//							builder.Append (resultChar [j]);
+//						}
+//					}
+//					//Debug.Log (builder.ToString ().Split ('.') [0]);
+//					DirsResourceHolder holder = new DirsResourceHolder () { 
+//						name = builder.ToString ().Split ('.') [0], 
+//						path = path.Substring (path.IndexOf ("Assets")).Replace ('\\', '/'), 
+//						postfix = postfix 
+//					};
+//					mDirsResourceList.Add (holder);
+//
+//					//Debug.Log (holder.name + ' ' + holder.path);
+//					//Debug.Log(path.Substring(path.IndexOf("Assets")));
+//					//Debug.Log (new string(pathChar).Trim());
+//				}
+//			}
+//		}
+//		if (Directory.GetDirectories (dirPath).Length > 0) {  //遍历所有文件夹
+//			foreach (string path in Directory.GetDirectories(dirPath)) {
+//				GetDirs (path);
+//			}
+//		}
+//	}
+		
 	//构建当前场景未使用的资源的列表
 	private void BuildUnUsedResourceList ()
 	{
@@ -646,6 +665,7 @@ public class ResourceScanner : EditorWindow
 			}
 		}
 	}
+
 
 	#endregion
 
