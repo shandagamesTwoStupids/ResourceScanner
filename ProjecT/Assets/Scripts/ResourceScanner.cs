@@ -43,7 +43,7 @@ public class ResourceScanner : EditorWindow
 		".anim",
 		".mat",
 		".ogg", ".wav", ".mp3",
-		".ttf"
+		".ttf",
 	};
 
 	//保存资源相关信息
